@@ -19,7 +19,6 @@ import {
   Wand2, Plus, Music as Music2, Loader2
 } from 'lucide-react';
 import { musicEngine } from '../services/MusicEngine';
-import { initDB } from '../services/db';
 import { useMusicEngine } from '../hooks/useMusicEngine';
 
 interface DashboardProps {
@@ -81,15 +80,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       setIsLoadingHome(false);
     });
 
-    initDB().then(db => {
-      const tx = db.transaction("favorites", "readonly");
-      const request = tx.objectStore("favorites").getAll();
-      request.onsuccess = () => setLikedSongs(request.result);
+    // Load liked songs from Supabase instead of IndexedDB
+    import('../services/FavoritesService').then(({ FavoritesService }) => {
+      const favService = FavoritesService.getInstance();
+      favService.setUserId(user.id);
+      favService.getLikedSongs().then(songs => {
+        setLikedSongs(songs);
+      });
     });
 
     const savedColor = localStorage.getItem('streamify_accent_color');
     if (savedColor) setAccentColor(savedColor);
-  }, []);
+  }, [user.id]);
 
   const handleUpdateAccentColor = (color: string) => {
     setAccentColor(color);
@@ -143,22 +145,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   const handleToggleLike = async (song: Song) => {
     const isLiked = likedSongs.some(s => s.id === song.id);
-    let newLiked;
 
-    const db = await initDB();
-    const tx = db.transaction("favorites", "readwrite");
-    const store = tx.objectStore("favorites");
+    const { FavoritesService } = await import('../services/FavoritesService');
+    const favService = FavoritesService.getInstance();
+    favService.setUserId(user.id);
 
-    if (isLiked) {
-      store.delete(song.id);
-      newLiked = likedSongs.filter(s => s.id !== song.id);
-      addToast("Removed from Liked Songs", 'info');
-    } else {
-      store.put(song);
-      newLiked = [...likedSongs, song];
+    const newIsLiked = await favService.toggleLike(song);
+
+    if (newIsLiked) {
+      setLikedSongs([...likedSongs, song]);
       addToast("Added to Liked Songs", 'success');
+    } else {
+      setLikedSongs(likedSongs.filter(s => s.id !== song.id));
+      addToast("Removed from Liked Songs", 'info');
     }
-    setLikedSongs(newLiked);
   };
 
   // --- CONTEXT MENU HANDLER ---
