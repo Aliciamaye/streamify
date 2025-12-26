@@ -509,31 +509,78 @@ class MusicEngine {
   private async loadAndPlay(song: Song) {
     if (!song) return;
 
-    this.notifyListeners(); // Update UI to show loading state if possible
+    this.currentSong = song;
+    this.notifyListeners();
 
-    try {
-      // Try primary source first (YouTube)
-      let url = await this.source.getStreamUrl(song.id);
+    let retries = 3;
+    let delay = 1000;
 
-      // If primary fails, try fallback (Embedded)
-      if (!url) {
-        console.warn(`[MusicEngine] Primary source failed for ${song.id}, trying fallback...`);
-        url = await this.fallbackSource.getStreamUrl(song.id);
-      }
+    while (retries > 0) {
+      try {
+        console.log(`[MusicEngine] Loading: ${song.title} (${retries} attempts left)`);
 
-      if (!url) throw new Error("No URL resolved from any source");
+        // Try primary source first (YouTube)
+        let url = await this.source.getStreamUrl(song.id);
 
-      this.audio.src = url;
-      await this.audio.play();
-    } catch (e: any) {
-      // Ignore AbortError (happens when skipping rapidly)
-      if (e.name === 'AbortError') {
-        console.log("Playback interrupted by new request");
+        // If primary fails, try fallback (Embedded)
+        if (!url) {
+          console.warn(`[MusicEngine] Primary source failed for ${song.id}, trying fallback...`);
+          url = await this.fallbackSource.getStreamUrl(song.id);
+        }
+
+        if (!url) throw new Error("No URL resolved from any source");
+
+        this.audio.src = url;
+        await this.audio.play();
+
+        // Success! Preload next track
+        this.preloadNextTrack();
         return;
+
+      } catch (e: any) {
+        // Ignore AbortError (happens when skipping rapidly)
+        if (e.name === 'AbortError') {
+          console.log("Playback interrupted by new request");
+          return;
+        }
+
+        retries--;
+        if (retries > 0) {
+          console.warn(`Load failed, retrying in ${delay}ms...`, e);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff
+        } else {
+          console.error("Load failed after all retries", e);
+          // Show error to user (you can emit an event here)
+          this.notifyListeners();
+        }
       }
-      console.error("Load failed", e);
-      // Do NOT auto-skip here to prevent infinite loops
     }
+  }
+
+  private preloadNextTrack() {
+    if (!this.gaplessEnabled || this.currentIndex >= this.playlist.length - 1) return;
+
+    const nextSong = this.playlist[this.currentIndex + 1];
+    if (!nextSong || this.isPreloading) return;
+
+    this.isPreloading = true;
+    console.log(`[Gapless] Preloading next: ${nextSong.title}`);
+
+    // Preload in background
+    this.source.getStreamUrl(nextSong.id).then(url => {
+      if (url) {
+        // Create a hidden audio element to preload
+        const preloadAudio = new Audio();
+        preloadAudio.src = url;
+        preloadAudio.load();
+        console.log(`[Gapless] Preloaded: ${nextSong.title}`);
+      }
+      this.isPreloading = false;
+    }).catch(err => {
+      console.warn('[Gapless] Preload failed:', err);
+      this.isPreloading = false;
+    });
   }
 
   private shuffleQueue(keepCurrent = false) {
