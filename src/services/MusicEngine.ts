@@ -512,12 +512,13 @@ class MusicEngine {
     this.currentSong = song;
     this.notifyListeners();
 
-    let retries = 3;
-    let delay = 1000;
+    // Only retry once to avoid spamming yt-dlp
+    let retries = 1;
+    let delay = 2000;
 
     while (retries > 0) {
       try {
-        console.log(`[MusicEngine] Loading: ${song.title} (${retries} attempts left)`);
+        console.log(`[MusicEngine] Loading: ${song.title}`);
 
         // Try primary source first (YouTube)
         let url = await this.source.getStreamUrl(song.id);
@@ -550,8 +551,8 @@ class MusicEngine {
           await new Promise(resolve => setTimeout(resolve, delay));
           delay *= 2; // Exponential backoff
         } else {
-          console.error("Load failed after all retries", e);
-          // Show error to user (you can emit an event here)
+          console.error("Load failed after retry", e);
+          // Don't auto-skip to prevent infinite loops
           this.notifyListeners();
         }
       }
