@@ -1,0 +1,5 @@
+{
+  "name": "Streamify AI",
+  "description": "A next-generation music streaming platform featuring AI-powered cover art generation and editing using Gemini 2.5 Flash.",
+  "requestFramePermissions": []
+}

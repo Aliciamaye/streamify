@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Audio Stream Test</title>
+</head>
+
+<body>
+    <h1>Audio Stream Test</h1>
+    <audio controls id="audio">
+        <source src="http://localhost:3001/api/stream/dQw4w9WgXcQ" type="audio/mp4">
+        Your browser does not support the audio element.
+    </audio>
+    <script>
+        const audio = document.getElementById('audio');
+        audio.addEventListener('error', (e) => {
+            console.error('Audio error:', e, audio.error);
+        });
+        audio.addEventListener('canplay', () => {
+            console.log('Audio can play!');
+        });
+    </script>
+</body>
+
+</html>
