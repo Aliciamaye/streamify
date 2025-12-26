@@ -174,6 +174,7 @@ app.get('/api/search', async (req, res) => {
 
         const songs = formatSearchResponse(items).slice(0, parseInt(limit));
 
+
         console.log(`[Search] ✓ Formatted ${songs.length} songs\n`);
 
         setCache(cacheKey, songs, CACHE_TTL.search);
@@ -294,20 +295,23 @@ app.get('/api/stream/:videoId', (req, res) => {
     });
 });
 
-// Stream URL Endpoint - Returns the proxy URL
-// Frontend calls this to get the URL to put in <audio src="...">
+// Stream URL Endpoint - Returns the proxy URL (not the stream itself)
 app.get('/api/stream-url/:videoId', (req, res) => {
     const { videoId } = req.params;
-    // Return the URL that points to our own proxy
-    const streamUrl = `http://localhost:${PORT}/api/stream/${videoId}`;
-    res.json({
-        streamUrl,
-        cached: false
-    });
+
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return res.status(400).json({ error: 'Invalid video ID' });
+    }
+
+    // Return the proxy URL that the frontend can use
+    const streamUrl = `http://localhost:3001/api/stream/${videoId}`;
+
+    res.json({ streamUrl });
 });
 
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`\n🎵 Streamify Server v4.0 (Streaming Proxy)`);
-    console.log(`📡 http://localhost:${PORT}`);
-    console.log(`✨ YouTube Search & Audio Proxy Active!\n`);
+    console.log(`🎵 Streamify API running on port ${PORT}`);
+    console.log(`📡 Stream endpoint: http://localhost:${PORT}/api/stream/:videoId`);
+    console.log(`🔍 Search endpoint: http://localhost:${PORT}/api/search`);
 });
