@@ -5,7 +5,8 @@ export interface Song {
   album: string;
   coverUrl: string;
   duration: string;
-  streamUrl?: string;
+  streamUrl: string;
+  source?: 'piped' | 'invidious' | 'youtube' | 'soundcloud' | 'embedded'; // Track source
   isLoading?: boolean;
   isDownloaded?: boolean;
 }

@@ -1,6 +1,5 @@
 import { Song } from '../types';
-import { StreamSource } from './sources/StreamSource';
-import { YouTubeSource } from './sources/YouTubeSource';
+import { SourceRouter } from './sources/SourceRouter';
 import { EmbeddedSource } from './sources/EmbeddedSource';
 
 type PlaybackMode = 'normal' | 'repeat-all' | 'repeat-one' | 'shuffle';
@@ -26,8 +25,8 @@ export const EQ_PRESETS: Record<string, EQPreset> = {
 class MusicEngine {
   private static instance: MusicEngine;
   private audio: HTMLAudioElement;
-  private source: StreamSource;
-  private fallbackSource: StreamSource;
+  private sourceRouter: SourceRouter;
+  private fallbackSource: EmbeddedSource;
 
   private playlist: Song[] = [];
   private originalPlaylist: Song[] = [];
@@ -72,7 +71,7 @@ class MusicEngine {
   private isInitialized = false;
 
   private constructor() {
-    this.source = YouTubeSource.getInstance();
+    this.sourceRouter = SourceRouter.getInstance();
     this.fallbackSource = EmbeddedSource.getInstance();
 
     // 1. Setup Audio Element
@@ -190,10 +189,6 @@ class MusicEngine {
   }
 
   // --- API ---
-
-  setSource(source: StreamSource) {
-    this.source = source;
-  }
 
   // State
   // Getters for state
@@ -498,16 +493,33 @@ class MusicEngine {
     this.notifyListeners();
   }
 
+  // Integrations (search, recommendations, charts)
+  async search(query: string, limit: number = 20): Promise<Song[]> {
+    try {
+      return await this.sourceRouter.search(query, limit);
+    } catch (error) {
+      console.error('[MusicEngine] Search failed:', error);
+      // Fallback to source if sourceRouter fails
+      return this.source.search(query, limit);
+    }
+  }
+
   async getRecommendations(songId?: string): Promise<Song[]> {
-    return this.source.getRecommendations(songId);
+    try {
+      // Use backend for recommendations
+      const response = await fetch(`http://localhost:3001/api/recommendations${songId ? `?videoId=${songId}` : ''}`);
+      const data = await response.json();
+      return data.songs || [];
+    } catch (error) {
+      console.error('[MusicEngine] Recommendations failed:', error);
+      return [];
+    }
   }
 
   async getCharts(): Promise<Song[]> {
-    return this.source.getCharts();
+    return this.sourceRouter.getCharts();
   }
 
-  // Search/Subs
-  async search(q: string) { return this.source.search(q); }
   subscribe(cb: () => void) { this.listeners.add(cb); return () => this.listeners.delete(cb); }
 
   // Internal
@@ -526,14 +538,8 @@ class MusicEngine {
       try {
         console.log(`[MusicEngine] Loading: ${song.title}`);
 
-        // Try primary source first (YouTube)
-        let url = await this.source.getStreamUrl(song.id);
-
-        // If primary fails, try fallback (Embedded)
-        if (!url) {
-          console.warn(`[MusicEngine] Primary source failed for ${song.id}, trying fallback...`);
-          url = await this.fallbackSource.getStreamUrl(song.id);
-        }
+        // Use SourceRouter for intelligent source selection
+        let url = await this.sourceRouter.getStreamUrl(song);
 
         if (!url) throw new Error("No URL resolved from any source");
 
