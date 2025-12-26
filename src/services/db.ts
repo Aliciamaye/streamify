@@ -24,7 +24,7 @@ export const initDB = (): Promise<IDBDatabase> => {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
 
-        // Store Audio Blobs for offline playback
+        // Store Audio Blobs for offline playback only
         if (!db.objectStoreNames.contains("audio_cache")) {
           db.createObjectStore("audio_cache", { keyPath: "id" });
         }
