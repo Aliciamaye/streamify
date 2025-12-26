@@ -196,7 +196,14 @@ class MusicEngine {
   }
 
   // State
-  get currentSong(): Song | null { return this.playlist[this.currentIndex] || null; }
+  // Getters for state
+  get currentSong(): Song | null {
+    if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
+      return this.playlist[this.currentIndex];
+    }
+    return null;
+  }
+
   get isPlaying(): boolean { return !this.audio.paused; }
   get currentTime(): number { return this.audio.currentTime; }
   get duration(): number { return this.audio.duration || 0; }
@@ -509,7 +516,6 @@ class MusicEngine {
   private async loadAndPlay(song: Song) {
     if (!song) return;
 
-    this.currentSong = song;
     this.notifyListeners();
 
     // Only retry once to avoid spamming yt-dlp
