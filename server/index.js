@@ -13,18 +13,20 @@ app.use(cors({
 app.use(express.json());
 
 let youtube;
+let isYouTubeReady = false;
 
-(async () => {
-    try {
-        youtube = await Innertube.create({
-            cache: false,
-            generate_session_locally: true
-        });
-        console.log('✅ YouTube Music API ready!');
-    } catch (error) {
-        console.error('❌ Init failed:', error.message);
-    }
-})();
+// Initialize YouTube Music API WITHOUT player downloads (we use yt-dlp for streaming)
+Innertube.create({
+    cache: undefined, // Disable caching to avoid download loops
+    generate_session_locally: true // Generate session without downloading player
+}).then(yt => {
+    youtube = yt;
+    isYouTubeReady = true;
+    console.log('✅ YouTube Music API ready!');
+}).catch(err => {
+    console.error('❌ Failed to initialize YouTube API:', err.message);
+    console.log('⚠️  Search will not work, but streaming via yt-dlp is still available');
+});
 
 const cache = new Map();
 const CACHE_TTL = { search: 5 * 60 * 1000, stream: 30 * 60 * 1000 };
