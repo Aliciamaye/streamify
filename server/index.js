@@ -304,12 +304,11 @@ app.get('/api/stream-url/:videoId', (req, res) => {
     }
 
     // Return the proxy URL that the frontend can use
-    const streamUrl = `http://localhost:3001/api/stream/${videoId}`;
+    const streamUrl = `http://localhost:${PORT}/api/stream/${videoId}`;
 
     res.json({ streamUrl });
 });
 
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`🎵 Streamify API running on port ${PORT}`);
     console.log(`📡 Stream endpoint: http://localhost:${PORT}/api/stream/:videoId`);
